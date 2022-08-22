@@ -1,0 +1,78 @@
+
+
+! Strength of the focussing and defocussing quadrupoles
+! Cell phase advance is 0.25
+f = 20 / sin(pi/4) / 4;
+kf = 1.0 / f;
+kd = -1.0 / f;
+
+
+beam;
+
+! Element definitions
+qf: multipole, l=0, knl:={0, kf, sx};
+qd: multipole, l=0, knl:={0, kd, sy};
+mb: sbend, l=10, ANGLE=pi/4.;
+
+
+! Define overall cell
+cell: sequence, refer=centre, l=20;
+    qf1:qf, at=0.;
+    mb1.1:mb, at=5.;
+    qd1:qd, at=10.;
+    mb1.2:mb, at=15.;
+endsequence;
+
+use, sequence=cell;
+
+! Match cell to phase advance of 0.25 in both planes
+MATCH, SEQUENCE = cell;
+    VARY, NAME=kf, LOWER=-1E22, UPPER=1E22;
+    VARY, NAME=kd, LOWER=-1E22, UPPER=1E22;
+    CONSTRAINT, RANGE=#E, MUX=1.28/4.;
+    CONSTRAINT, RANGE=#E, MUY=1.31/4.;
+    LMDIF, CALLS=5000, TOLERANCE=1E-14;
+ENDMATCH;
+
+! Define overall cell
+seq: sequence, refer=centre, l=80;
+    qf1:qf, at=0.;
+    mb1.1:mb, at=5.;
+    qd1:qd, at=10.;
+    mb1.2:mb, at=15.;
+
+    qf2:qf, at=20.;
+    mb2.1:mb, at=25.;
+    qd2:qd, at=30.;
+    mb2.2:mb, at=35.;
+
+    qf3:qf, at=40.;
+    mb3.1:mb, at=45.;
+    qd3:qd, at=50.;
+    mb3.2:mb, at=55.;
+
+    qf4:qf, at=60.;
+    mb4.1:mb, at=65.;
+    qd4:qd, at=70.;
+    mb4.2:mb, at=75.;
+endsequence;
+
+USE, SEQUENCE = seq;
+
+sx={{K2S1}};
+sy={{K2S2}};
+
+beam;
+use, sequence=seq;
+select, flag=twiss, clear;
+twiss, file="twiss.tfs";
+
+MATCH;
+VARY, NAME=sx;
+VARY, NAME=sy;
+
+GLOBAL, SEQUENCE=seq, DQ1=0;
+GLOBAL, SEQUENCE=seq, DQ2=0;
+LMDIF, CALLS=4000, TOLERANCE=1E-6;
+JACOBIAN, CALLS=4000, TOLERANCE=1E-6;
+ENDMATCH;
