@@ -47,7 +47,6 @@ LOGGER = logging.getLogger(__name__)
 
 REPOSITORY_TOP_LEVEL = Path(__file__).resolve().parent.parent
 
-SAD_EXECUTABLE = REPOSITORY_TOP_LEVEL/'knobtimizer'/'codes'/'SAD'/'bin'/'gs'
 MADX_EXECUTABLE = REPOSITORY_TOP_LEVEL/'knobtimizer'/'codes'/'madx'
 
 CHECKPOINT_FILE="checkpoint.pkl"
@@ -109,8 +108,6 @@ def get_params():
         name='codes',
         type=dict,
         default={
-            'SAD':{'executable':SAD_EXECUTABLE},
-            'MADX':{'executable':MADX_EXECUTABLE},
             'TEST':{'executable':MADX_EXECUTABLE},
         },
         help='Defines codes and executables to use.'
