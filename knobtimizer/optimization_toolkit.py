@@ -1,14 +1,16 @@
+import logging
 from pathlib import Path
 import tempfile
 import numpy as np
 import pandas as pd
 import tfs
 
+
 from pymoo.core.problem import ElementwiseProblem
 from pymoo.core.repair import Repair
 from knobtimizer.codes.base_code_class import AcceleratorCode
 
-
+LOGGER = logging.getLogger(__name__)
 class KnobOptimization(ElementwiseProblem):
 
     def __init__(self,
@@ -45,6 +47,7 @@ class KnobOptimization(ElementwiseProblem):
 def save_results(result: list, knobs: list[str], filename:Path) -> None:
     strengths = pd.DataFrame(index=knobs, data={'KnobStrength':result.X})
     strengths.index.rename('Knob', inplace=True)
+    LOGGER.info(f'Saving results to {filename}.')
     tfs.write(filename, strengths, save_index=True)
 
 

@@ -21,6 +21,7 @@ import numpy as np
 import jinja2
 import pandas as pd
 import dill
+import logging
 
 from generic_parser import EntryPointParameters, entrypoint
 from knobtimizer.iotools import save_config, PathOrStr, timeit
@@ -35,6 +36,8 @@ from pymoo.algorithms.soo.nonconvex.nelder import NelderMead
 from pymoo.algorithms.soo.nonconvex.ga import GA
 from pymoo.algorithms.moo.nsga2 import NSGA2
 from pymoo.config import Config
+
+from knobtimizer.verify_results import LOGGER
 Config.warnings['not_compiled'] = False
 
 from dask.distributed import Client, LocalCluster
@@ -42,6 +45,7 @@ from dask_jobqueue import HTCondorCluster
 
 import knobtimizer.optimization_toolkit as toolkit
 
+LOGGER = logging.getLogger(__name__)
 
 REPOSITORY_TOP_LEVEL = Path(__file__).resolve().parent.parent
 
@@ -205,20 +209,25 @@ def get_params():
 
 @entrypoint(get_params(), strict=True)
 def main(opt):
+    LOGGER.info('Knobtimization started!')
 
     # check options and convert types where necessary
     save_config(Path(opt.working_directory), opt, "knobtimizer")
+    LOGGER.info(f'Configuration saved to {opt.working_directory}.')
     opt = check_opt(opt)
 
     # take replace dict from yaml and fill in template in place
     if opt.replace_file is not None:
         fill_in_replace_dict(opt)
 
+    LOGGER.info('Create code classes.')
     assess_methods = create_code_classes(opt)
     
     if opt.dryrun:
+        LOGGER.info('Dryrun started.')
         dryrun(opt, assess_methods=assess_methods)
     else:
+        LOGGER.info('Run optimization.')
         result = run_optimization(opt, assess_methods=assess_methods)
         return result.X
 
@@ -229,6 +238,7 @@ def check_opt(opt: dict) -> dict:
     opt.working_directory.mkdir(parents=True, exist_ok=True)
 
     if opt.replace_file is not None:
+        LOGGER.info(f'Load YAML file {opt.replace_file} with replace dict.')
         with open(Path(opt.replace_file)) as f:
             opt.config_dict = yaml.safe_load(f)
 
@@ -238,6 +248,7 @@ def check_opt(opt: dict) -> dict:
     opt.template_file = Path(opt.template_file)
     shutil.copy(opt.template_file, opt.working_directory/opt.template_file.name)
     opt.template_file = opt.template_file.name
+    LOGGER.debug(f'Template file {opt.template_file} copied to {opt.working_directory}.')
 
     # copy template files to working directory and keep only the name for jinja
     if opt.repair_mask is not None:
@@ -247,12 +258,15 @@ def check_opt(opt: dict) -> dict:
         opt.repair_mask = Path(opt.repair_mask)
         shutil.copy(opt.repair_mask, opt.working_directory/opt.repair_mask.name)
         opt.repair_mask = opt.repair_mask.name
+        LOGGER.debug(f'Template file {opt.repair_mask} copied to {opt.working_directory}.')
         
     if opt.repair_method is None:
         opt.repair_method = opt.assessment_method
+        LOGGER.debug(f'No repair method selected, assessment method is used.')
 
     if opt.start_values is None:
         opt.start_values = [0]*len(opt.knobs)
+        LOGGER.debug(f'No start values given, initialized with zeros.')
 
     if opt.algorithm not in ALGORITHMS:
         raise AttributeError(f"Algorithm {opt.algorithm} not available.")
@@ -264,12 +278,14 @@ def check_opt(opt: dict) -> dict:
 
 
 def fill_in_replace_dict(opt: dict) -> dict:
+        LOGGER.debug('Fill template file with replace dict.')
         fill_template(opt.config_dict['REPLACE_DICT'],
                       opt.working_directory,
                       opt.template_file,
                       opt.working_directory,
                       strict=False)
         if opt.repair_mask is not None:
+            LOGGER.debug('Fill repair mask with replace dict.')
             fill_template(opt.config_dict['REPLACE_DICT'],
                           opt.working_directory,
                           opt.repair_mask,
@@ -294,6 +310,7 @@ def fill_template(fill_dictionary: dict, template_directory: Path, template_file
 def create_code_classes(opt: dict) -> dict:
     assess_methods={}
     for code in opt.codes:
+        LOGGER.info(f'Importing knobtimizer.codes.{code}')
         mod = importlib.import_module(f"knobtimizer.codes.{code}")
         code_class = getattr(mod, code)
         assess_methods[code]=code_class(
@@ -302,37 +319,41 @@ def create_code_classes(opt: dict) -> dict:
             template_directory=opt.working_directory,
             repair_mask=opt.repair_mask
             )
+        LOGGER.info(f'Accelerator code class {code} created.')
 
     return assess_methods
 
 
 def dryrun(opt: dict, assess_methods: dict) -> None:
-    with timeit(lambda t: print(f'Time for assess score: {t} s')):
+    with timeit(lambda t: LOGGER.info(f'Time for assess score: {t} s')):
         work_directory = opt.working_directory/'Assess_score'
         work_directory.mkdir(parents=True, exist_ok=True)
         score=assess_methods[opt.assessment_method].return_score(
             pd.Series(index=opt.knobs, data=opt.start_values).to_dict(),
             work_directory
             )
+        LOGGER.info(f'Assessment score: {score}')
     if opt.repair_mask is not None:
-        with timeit(lambda t: print(f'Time for repair method: {t} s')):
+        with timeit(lambda t: LOGGER.info(f'Time for repair method: {t} s')):
             work_directory = opt.working_directory/'Repair_method'
             work_directory.mkdir(parents=True, exist_ok=True)
             score=assess_methods[opt.repair_method].repair(
                 pd.Series(index=opt.knobs, data=opt.start_values).to_dict(),
                     work_directory
                     )
+            LOGGER.info(f'Repair return values: {score}')
 
 
 def run_optimization(opt: dict, assess_methods: dict):
     with CLUSTER[opt.cluster]['dask_queue'](**CLUSTER[opt.cluster]['cluster_parameter']) as cluster:
 
         with Client(cluster) as client:
-
             cluster.scale(opt.population)
             if opt.algorithm == 'NelderMead':
+                LOGGER.info('NelderMead does not with dask and cluster setting is ignored. Optimization will run locally.')
                 runner = LoopedElementwiseEvaluation() # Simplex broken when used in conjunction with dask
             else:
+                LOGGER.info(f'Running optimization on {opt.cluster}.')
                 runner = DaskParallelization(client)
 
             problem = toolkit.KnobOptimization(
@@ -344,6 +365,7 @@ def run_optimization(opt: dict, assess_methods: dict):
             )
 
             if opt.checkpoint and (opt.working_directory/CHECKPOINT_FILE).is_file():
+                LOGGER.info(f'Loading checkpoint from {opt.working_directory/CHECKPOINT_FILE}.')
                 with open(opt.working_directory/CHECKPOINT_FILE, 'rb') as f:
                     algorithm = dill.load(f)
                     algorithm.termination = MaximumGenerationTermination(algorithm.n_gen+opt.generations)
@@ -362,7 +384,9 @@ def run_optimization(opt: dict, assess_methods: dict):
                     )
                 
                 algorithm.termination = MaximumGenerationTermination(opt.generations)
+                LOGGER.info(f'Set up algorithm {opt.algorithm} with Population {opt.population} and with {opt.generations} Generations.')
 
+            LOGGER.info('Optimziation started.')
             res = minimize(
                 problem,
                 algorithm=algorithm,
@@ -371,8 +395,10 @@ def run_optimization(opt: dict, assess_methods: dict):
                 verbose=True,
                 copy_algorithm=False,
             )
+            LOGGER.info('Optimziation finished.')
 
             if opt.checkpoint:
+                LOGGER.info(f'Save checkpoint to {opt.working_directory/CHECKPOINT_FILE}.')
                 with open(opt.working_directory/CHECKPOINT_FILE, "wb") as f:
                     dill.dump(algorithm, f)
 
