@@ -17,7 +17,7 @@ TEST_INPUT =  REPOSITORY_TOP_LEVEL/'tests'/'input'
 TEST_KNOBS = ['K2S1', 'K2S2']
 RUN_MODE = 'local'
 
-def test_run_da(tmp_path):
+def test_run_testscore(tmp_path):
     TestClass = knobtimizer.codes.TEST.TEST(
         executable=knobtimizer.run_optimization.MADX_EXECUTABLE,
         template_file='FODO_chrom.madx.template',
