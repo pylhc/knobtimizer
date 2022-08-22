@@ -36,8 +36,6 @@ from pymoo.algorithms.soo.nonconvex.nelder import NelderMead
 from pymoo.algorithms.soo.nonconvex.ga import GA
 from pymoo.algorithms.moo.nsga2 import NSGA2
 from pymoo.config import Config
-
-from knobtimizer.verify_results import LOGGER
 Config.warnings['not_compiled'] = False
 
 from dask.distributed import Client, LocalCluster

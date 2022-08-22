@@ -5,7 +5,6 @@ import numpy as np
 import pandas as pd
 import tfs
 
-
 from pymoo.core.problem import ElementwiseProblem
 from pymoo.core.repair import Repair
 from knobtimizer.codes.base_code_class import AcceleratorCode

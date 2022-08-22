@@ -4,28 +4,26 @@ from pathlib import Path
 import pytest
 import dill
 import tfs
+from numpy.testing import assert_allclose
 
-import knobtimizer.sextupole_circuits
 import knobtimizer.run_optimization
 import knobtimizer.optimization_toolkit
 import knobtimizer.codes.TEST
-import knobtimizer.codes.SAD
-import knobtimizer.codes.MADX
 import knobtimizer.codes.MADXCHROM
 
 REPOSITORY_TOP_LEVEL = Path(__file__).resolve().parent.parent
 TEST_INPUT =  REPOSITORY_TOP_LEVEL/'tests'/'input'
 
-TEST_KNOBS = [f'K2S{i}' for i in range(1, 2*73+1)]
+TEST_KNOBS = ['K2S1', 'K2S2']
 RUN_MODE = 'local'
 
 def test_run_da(tmp_path):
     TestClass = knobtimizer.codes.TEST.TEST(
         executable=knobtimizer.run_optimization.MADX_EXECUTABLE,
-        template_file='FCCee_t_529.chroma.madx.template',
+        template_file='FODO_chrom.madx.template',
         template_directory=TEST_INPUT,
         )
-    strengths=pd.Series(index=TEST_KNOBS, data=np.zeros(len(TEST_KNOBS))).to_dict()
+    strengths=pd.Series(index=TEST_KNOBS, data=np.zeros(2)).to_dict()
     score=TestClass.return_score(
         strengths=strengths,
         working_directory=tmp_path
@@ -39,7 +37,7 @@ def test_run_madxchrom(tmp_path):
         template_file='FODO_chrom.madx.template',
         template_directory=TEST_INPUT,
         )
-    strengths=pd.Series(index=['K2S1', 'K2S2'], data=np.zeros(2)).to_dict()
+    strengths=pd.Series(index=TEST_KNOBS, data=np.zeros(2)).to_dict()
     score=MadXChrom.return_score(
         strengths=strengths,
         working_directory=tmp_path
@@ -47,47 +45,28 @@ def test_run_madxchrom(tmp_path):
     assert score+(0.4368240649+0.3247152235)<1e-12
 
 
-def test_score_sad(tmp_path):
-    SadClass = knobtimizer.codes.SAD.SAD(
-        knobtimizer.run_optimization.SAD_EXECUTABLE,
-        template_file='FCCee_t_529.sad.template',
-        template_directory=TEST_INPUT,
-        )
-    strengths=pd.Series(index=TEST_KNOBS, data=np.zeros(len(TEST_KNOBS))).to_dict()
-
-    score=SadClass.return_score(
-        strengths=strengths,
-        working_directory=tmp_path
-        )
-    assert score == np.prod([239, 205, 445, 238])
-
-
-def test_chroma_sad(tmp_path):
-    SadClass = knobtimizer.codes.SAD.SAD(
-        knobtimizer.run_optimization.SAD_EXECUTABLE,
-        template_file='FCCee_t_529.sad.template',
-        template_directory=TEST_INPUT,
-        )
-    strengths=pd.Series(index=TEST_KNOBS, data=np.zeros(len(TEST_KNOBS))).to_dict()
-    with pytest.raises(NotImplementedError):
-        SadClass.repair(
-            strengths,
-            tmp_path
-        )
-
-
-def test_chroma_madx(tmp_path):
-    MadxClass = knobtimizer.codes.MADX.MADX(
+def test_not_implemented_repair(tmp_path):
+    TestClass = knobtimizer.codes.TEST.TEST(
         executable=knobtimizer.run_optimization.MADX_EXECUTABLE,
-        template_file='FCCee_t_529.chroma.madx.template',
+        template_file='FODO_chrom.madx.template',
         template_directory=TEST_INPUT,
-        repair_mask='FCCee_t_529.chroma.madx.template'
+        )
+    strengths=pd.Series(index=TEST_KNOBS, data=np.zeros(2)).to_dict()
+    with pytest.raises(NotImplementedError):
+        TestClass.repair(strengths, tmp_path)
+
+
+def test_implemented_repair(tmp_path):
+    MadxClass = knobtimizer.codes.MADXCHROM.MADXCHROM(
+        executable=knobtimizer.run_optimization.MADX_EXECUTABLE,
+        template_file='FODO_chrom.madx.template',
+        template_directory=TEST_INPUT,
+        repair_mask='FODO_chrom.madx.template'
         )
     strengths=pd.Series(index=TEST_KNOBS, data=np.zeros(len(TEST_KNOBS))).to_dict()
-    MadxClass.repair(
-        strengths,
-        tmp_path
-    )
+    repaired_strength = MadxClass.repair(strengths, tmp_path)
+    
+    assert_allclose(repaired_strength, np.zeros(len(TEST_KNOBS)))
 
 
 @pytest.mark.parametrize("algorithm", knobtimizer.run_optimization.ALGORITHMS.keys())
@@ -97,7 +76,7 @@ def test_algorithms(tmp_path, algorithm):
         codes={'MADXCHROM':{'executable':knobtimizer.run_optimization.MADX_EXECUTABLE}},
         algorithm=algorithm,
         working_directory=tmp_path,
-        knobs=['K2S1', 'K2S2'],
+        knobs=TEST_KNOBS,
         max_knob_value=1.e-2,
         template_file=TEST_INPUT/'FODO_chrom.madx.template',
         replace_file=None,
@@ -111,11 +90,8 @@ def test_algorithms(tmp_path, algorithm):
         template_file='FODO_chrom.madx.template',
         template_directory=TEST_INPUT,
         )
-    strengths=pd.Series(index=['K2S1', 'K2S2'], data=res['KnobStrength']).to_dict()
-    score=MadXChrom.return_score(
-        strengths=strengths,
-        working_directory=tmp_path
-        )
+    strengths=pd.Series(index=TEST_KNOBS, data=res['KnobStrength']).to_dict()
+    score=MadXChrom.return_score(strengths=strengths, working_directory=tmp_path)
     assert np.abs(score)<1e-2
 
 
@@ -129,7 +105,7 @@ def test_run_checkpoint(tmp_path, algorithm):
         codes={'MADXCHROM':{'executable':knobtimizer.run_optimization.MADX_EXECUTABLE}},
         algorithm=algorithm,
         working_directory=tmp_path,
-        knobs=['K2S1', 'K2S2'],
+        knobs=TEST_KNOBS,
         max_knob_value=1.e-2,
         template_file=TEST_INPUT/'FODO_chrom.madx.template',
         replace_file=None,
@@ -150,7 +126,7 @@ def test_run_checkpoint(tmp_path, algorithm):
         codes={'MADXCHROM':{'executable':knobtimizer.run_optimization.MADX_EXECUTABLE}},
         algorithm=algorithm,
         working_directory=tmp_path,
-        knobs=['K2S1', 'K2S2'],
+        knobs=TEST_KNOBS,
         max_knob_value=1.e-2,
         template_file=TEST_INPUT/'FODO_chrom.madx.template',
         replace_file=None,
@@ -165,13 +141,14 @@ def test_run_repair(tmp_path):
     knobtimizer.run_optimization.main(
         cluster=RUN_MODE,
         algorithm='PSO',
+        codes={'MADXCHROM':{'executable':knobtimizer.run_optimization.MADX_EXECUTABLE}},
         working_directory=tmp_path,
         knobs=TEST_KNOBS,
-        template_file=TEST_INPUT/'FCCee_t_529.sad.template',
-        repair_mask=TEST_INPUT/'FCCee_t_529.chroma.madx.template',
+        template_file=TEST_INPUT/'FODO_chrom.madx.template',
+        repair_mask=TEST_INPUT/'FODO_chrom.madx.template',
         replace_file=None,
-        assessment_method='SAD',
-        repair_method='MADX',
+        assessment_method='MADXCHROM',
+        repair_method='MADXCHROM',
         population=3,
         generations=3,
     )
