@@ -53,7 +53,7 @@ if __name__ == "__main__":
     algorithm='PSO',
     working_directory=PathToWorkingDirectory,
     knobs= ['Kn1', 'Kn2'],
-    template_file=PathToTempalte,
+    template_file=PathToTemplate,
     assessment_method='TEST',
     population=20,
     generations=5
