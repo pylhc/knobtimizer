@@ -1,3 +1,4 @@
+import shutil
 import numpy as np
 import pandas as pd
 from pathlib import Path
@@ -149,6 +150,39 @@ def test_run_repair(tmp_path):
         replace_file=None,
         assessment_method='MADXCHROM',
         repair_method='MADXCHROM',
-        population=3,
-        generations=3,
+        population=10,
+        generations=30,
     )
+
+
+def test_load_code_from_dir(tmp_path):
+    code_path= Path(tmp_path)/'codeclass'
+    code_path.mkdir(parents=True, exist_ok=True)
+    shutil.copyfile(
+        REPOSITORY_TOP_LEVEL/'knobtimizer'/'codes'/'MADXCHROM.py',
+        code_path/'MADXCHROM.py',
+        )
+    print(code_path)
+    knobtimizer.run_optimization.main(
+        cluster=RUN_MODE,
+        algorithm='PSO',
+        codes={'MADXCHROM':{'executable':knobtimizer.run_optimization.MADX_EXECUTABLE}},
+        code_path=code_path,
+        working_directory=tmp_path,
+        knobs=TEST_KNOBS,
+        max_knob_value=1.e-2,
+        template_file=TEST_INPUT/'FODO_chrom.madx.template',
+        replace_file=None,
+        assessment_method='MADXCHROM',
+        population=10,
+        generations=30,
+    )
+    res=tfs.read(tmp_path/'results.tfs')
+    MadXChrom = knobtimizer.codes.MADXCHROM.MADXCHROM(
+        executable=knobtimizer.run_optimization.MADX_EXECUTABLE,
+        template_file='FODO_chrom.madx.template',
+        template_directory=TEST_INPUT,
+        )
+    strengths=pd.Series(index=TEST_KNOBS, data=res['KnobStrength']).to_dict()
+    score=MadXChrom.return_score(strengths=strengths, working_directory=tmp_path)
+    assert np.abs(score)<1e-2

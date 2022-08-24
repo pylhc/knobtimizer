@@ -12,6 +12,7 @@ Based on the ouput of the code, the `assess_score` method will then return the s
 Additionally, a repair mask can be provided, which allows to adjust the knob value to account for other constraints.
 
 """
+import sys
 import yaml
 import importlib
 from pathlib import Path
@@ -111,6 +112,12 @@ def get_params():
             'TEST':{'executable':MADX_EXECUTABLE},
         },
         help='Defines code classes to use and possible extra arguments required in the initialization.'
+    )
+    params.add_parameter(
+        name='code_path',
+        type=PathOrStr,
+        default=REPOSITORY_TOP_LEVEL/'knobtimizer'/'codes',
+        help='Define path where code classes are located.'
     )
     params.add_parameter(
         name='algorithm',
@@ -232,6 +239,8 @@ def check_opt(opt: dict) -> dict:
     opt.working_directory = Path(opt.working_directory)
     opt.working_directory.mkdir(parents=True, exist_ok=True)
 
+    opt.code_path = Path(opt.code_path)
+
     if opt.replace_file is not None:
         LOGGER.info(f'Load YAML file {opt.replace_file} with replace dict.')
         with open(Path(opt.replace_file)) as f:
@@ -305,8 +314,12 @@ def fill_template(fill_dictionary: dict, template_directory: Path, template_file
 def create_code_classes(opt: dict) -> dict:
     assess_methods={}
     for code in opt.codes:
-        LOGGER.info(f'Importing knobtimizer.codes.{code}')
-        mod = importlib.import_module(f"knobtimizer.codes.{code}")
+        LOGGER.info(f'Loading code class {code}.py from {opt.code_path}.')
+        spec = importlib.util.spec_from_file_location(code, opt.code_path/f'{code}.py')
+        mod = importlib.util.module_from_spec(spec)
+        sys.modules[code] = mod
+        spec.loader.exec_module(mod)
+
         code_class = getattr(mod, code)
         assess_methods[code]=code_class(
             template_file=opt.template_file,
