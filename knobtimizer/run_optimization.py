@@ -110,7 +110,7 @@ def get_params():
         default={
             'TEST':{'executable':MADX_EXECUTABLE},
         },
-        help='Defines codes and executables to use.'
+        help='Defines code classes to use and possible extra arguments required in the initialization.'
     )
     params.add_parameter(
         name='algorithm',
@@ -309,10 +309,10 @@ def create_code_classes(opt: dict) -> dict:
         mod = importlib.import_module(f"knobtimizer.codes.{code}")
         code_class = getattr(mod, code)
         assess_methods[code]=code_class(
-            executable=opt.codes[code]['executable'],
             template_file=opt.template_file,
             template_directory=opt.working_directory,
-            repair_mask=opt.repair_mask
+            repair_mask=opt.repair_mask,
+            **opt.codes[code],
             )
         LOGGER.info(f'Accelerator code class {code} created.')
 
@@ -381,7 +381,7 @@ def run_optimization(opt: dict, assess_methods: dict):
                 algorithm.termination = MaximumGenerationTermination(opt.generations)
                 LOGGER.info(f'Set up algorithm {opt.algorithm} with Population {opt.population} and with {opt.generations} Generations.')
 
-            LOGGER.info('Optimziation started.')
+            LOGGER.info('Optimization started.')
             res = minimize(
                 problem,
                 algorithm=algorithm,
@@ -390,7 +390,7 @@ def run_optimization(opt: dict, assess_methods: dict):
                 verbose=True,
                 copy_algorithm=False,
             )
-            LOGGER.info('Optimziation finished.')
+            LOGGER.info('Optimization finished.')
 
             if opt.checkpoint:
                 LOGGER.info(f'Save checkpoint to {opt.working_directory/CHECKPOINT_FILE}.')
