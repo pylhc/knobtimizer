@@ -44,10 +44,9 @@ class KnobOptimization(ElementwiseProblem):
 
 
 def save_results(result: list, knobs: list[str], filename:Path) -> None:
-    strengths = pd.DataFrame(index=knobs, data={'KnobStrength':result.X})
-    strengths.index.rename('Knob', inplace=True)
+    strengths = pd.DataFrame(data={'Knob':knobs,'KnobStrength':result.X})
     LOGGER.info(f'Saving results to {filename}.')
-    tfs.write(filename, strengths, save_index=True)
+    tfs.write(filename, strengths)
 
 
 def repair_fun(X, problem):

@@ -52,6 +52,7 @@ MADX_EXECUTABLE = REPOSITORY_TOP_LEVEL/'knobtimizer'/'codes'/'madx'
 
 CHECKPOINT_FILE="checkpoint.pkl"
 RESULTS_FILE="results.tfs"
+START_VAL_SCALE = 0.5
 
 CLUSTER={
     'HTC':{'dask_queue':HTCondorCluster,
@@ -382,7 +383,7 @@ def run_optimization(opt: dict, assess_methods: dict):
                 start_values = np.zeros((opt.population, len(opt.knobs)))
                 start_values[0, :] = np.array(opt.start_values)
                 for i in range(1, opt.population):
-                    start_values[i, :] = start_values[0, :] + np.random.normal(scale=0.1*opt.max_knob_value, size=problem.n_var)
+                    start_values[i, :] = start_values[0, :] + np.random.normal(scale=START_VAL_SCALE*opt.max_knob_value, size=problem.n_var)
 
                 algorithm=ALGORITHMS[opt.algorithm](
                     pop_size=opt.population,
