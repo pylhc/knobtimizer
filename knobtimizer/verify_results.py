@@ -7,9 +7,10 @@ import logging
 
 from generic_parser import EntryPointParameters, entrypoint
 from knobtimizer.iotools import save_config, PathOrStr, timeit
-from knobtimizer.run_optimization import (SAD_EXECUTABLE, MADX_EXECUTABLE, fill_in_replace_dict, create_code_classes)
+from knobtimizer.run_optimization import (MADX_EXECUTABLE, fill_in_replace_dict, create_code_classes)
 
 LOGGER = logging.getLogger(__name__)
+REPOSITORY_TOP_LEVEL = Path(__file__).resolve().parent.parent
 
 def get_params():
     params = EntryPointParameters()
@@ -17,11 +18,15 @@ def get_params():
         name='codes',
         type=dict,
         default={
-            'SAD':{'executable':SAD_EXECUTABLE},
-            'MADX':{'executable':MADX_EXECUTABLE},
             'TEST':{'executable':MADX_EXECUTABLE},
         },
         help='Defines codes and executables to use.'
+    )
+    params.add_parameter(
+        name='code_path',
+        type=PathOrStr,
+        default=REPOSITORY_TOP_LEVEL/'knobtimizer'/'codes',
+        help='Define path where code classes are located.'
     )
     params.add_parameter(
         name='working_directory',
@@ -96,6 +101,8 @@ def check_opt(opt: dict) -> dict:
     opt.working_directory = Path(opt.working_directory)
     opt.working_directory.mkdir(parents=True, exist_ok=True)
 
+    opt.code_path = Path(opt.code_path)
+    
     if opt.replace_file is not None:
         LOGGER.info(f'Load YAML file {opt.replace_file} with replace dict.')
         with open(Path(opt.replace_file)) as f:
