@@ -85,14 +85,13 @@ def test_algorithms(tmp_path, algorithm):
         population=10,
         generations=30,
     )
-    res=tfs.read(tmp_path/'results.tfs')
+    res=tfs.read(tmp_path/'results.tfs', index='Knob').squeeze().to_dict()
     MadXChrom = knobtimizer.codes.MADXCHROM.MADXCHROM(
         executable=knobtimizer.run_optimization.MADX_EXECUTABLE,
         template_file='FODO_chrom.madx.template',
         template_directory=TEST_INPUT,
         )
-    strengths=pd.Series(index=TEST_KNOBS, data=res['KnobStrength']).to_dict()
-    score=MadXChrom.return_score(strengths=strengths, working_directory=tmp_path)
+    score=MadXChrom.return_score(strengths=res, working_directory=tmp_path)
     assert np.abs(score)<1e-2
 
 
@@ -177,12 +176,11 @@ def test_load_code_from_dir(tmp_path):
         population=10,
         generations=30,
     )
-    res=tfs.read(tmp_path/'results.tfs')
+    res=tfs.read(tmp_path/'results.tfs', index='Knob').squeeze().to_dict()
     MadXChrom = knobtimizer.codes.MADXCHROM.MADXCHROM(
         executable=knobtimizer.run_optimization.MADX_EXECUTABLE,
         template_file='FODO_chrom.madx.template',
         template_directory=TEST_INPUT,
         )
-    strengths=pd.Series(index=TEST_KNOBS, data=res['KnobStrength']).to_dict()
-    score=MadXChrom.return_score(strengths=strengths, working_directory=tmp_path)
+    score=MadXChrom.return_score(strengths=res, working_directory=tmp_path)
     assert np.abs(score)<1e-2

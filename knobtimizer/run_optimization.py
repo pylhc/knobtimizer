@@ -52,7 +52,7 @@ MADX_EXECUTABLE = REPOSITORY_TOP_LEVEL/'knobtimizer'/'codes'/'madx'
 
 CHECKPOINT_FILE="checkpoint.pkl"
 RESULTS_FILE="results.tfs"
-START_VAL_SCALE = 0.1
+START_VAL_SCALE = 0.5
 
 CLUSTER={
     'HTC':{'dask_queue':HTCondorCluster,
